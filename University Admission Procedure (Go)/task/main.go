@@ -18,6 +18,10 @@ func main() {
 	// Print the mean score
 	fmt.Println(meanScore)
 
-	// Print the acceptance message
-	fmt.Println("Congratulations, you are accepted!")
+	// Conditional check for acceptance or rejection
+	if meanScore >= 60.0 {
+		fmt.Println("Congratulations, you are accepted!")
+	} else {
+		fmt.Println("We regret to inform you that we will not be able to offer you admission.")
+	}
 }
