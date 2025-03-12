@@ -13,61 +13,76 @@ import (
 type Applicant struct {
 	FirstName   string
 	LastName    string
-	GPA         float64
+	Scores      map[string]float64
 	Preferences []string
 	FullName    string
 }
 
+func (a *Applicant) GetScore(dept string) float64 {
+	return a.Scores[departmentSubjects[dept]]
+}
+
+var departmentSubjects = map[string]string{
+	"Biotech":     "Chemistry",
+	"Chemistry":   "Chemistry",
+	"Engineering": "Computer Science",
+	"Mathematics": "Math",
+	"Physics":     "Physics",
+}
+
 func main() {
 	var N int
-
-	// Read the number of accepted applicants
 	fmt.Scan(&N)
 
-	file, err := os.Open("applicants.txt")
+	applicants, err := readApplicants("applicants.txt")
+	if err != nil {
+		fmt.Println("Error reading applicants:", err)
+	}
+
+	deptAdmissions := processAdmissions(applicants, N)
+	sortAdmissions(deptAdmissions)
+	printResults(deptAdmissions)
+}
+
+func readApplicants(filename string) ([]Applicant, error) {
+	file, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
-		return
+		return nil, err
 	}
 	defer file.Close()
 
 	var applicants []Applicant
-	departments := []string{"Biotech", "Chemistry", "Engineering", "Mathematics", "Physics"}
-	deptAdmissions := make(map[string][]Applicant)
 
 	scanner := bufio.NewScanner(file)
-
-	// Read applicant data
 	for scanner.Scan() {
 		fields := strings.Fields(scanner.Text())
-		gpa, _ := strconv.ParseFloat(fields[2], 64)
-		preferences := fields[3:]
+		scores := map[string]float64{
+			"Physics":          parseScore(fields[2]),
+			"Chemistry":        parseScore(fields[3]),
+			"Math":             parseScore(fields[4]),
+			"Computer Science": parseScore(fields[5]),
+		}
+		preferences := fields[6:]
 
 		// Store applicant details
 		applicants = append(applicants, Applicant{
-			fields[0],
-			fields[1],
-			gpa,
-			preferences,
-			fields[0] + " " + fields[1],
+			FirstName:   fields[0],
+			LastName:    fields[1],
+			Scores:      scores,
+			Preferences: preferences,
+			FullName:    fields[0] + " " + fields[1],
 		})
 	}
 
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading file:", err)
-		return
-	}
+	return applicants, scanner.Err()
+}
 
-	// Sort applicants by GPA (descending) and FullName (ascending if GPA is equal)
-	sort.Slice(applicants, func(i, j int) bool {
-		if applicants[i].GPA == applicants[j].GPA {
-			return applicants[i].FullName < applicants[j].FullName
-		}
-		return applicants[i].GPA > applicants[j].GPA
-	})
+func processAdmissions(applicants []Applicant, N int) map[string][]Applicant {
+	deptAdmissions := make(map[string][]Applicant)
 
-	// Process applications based on preferences
 	for _, prefLevel := range []int{0, 1, 2} {
+		sortApplicants(&applicants, prefLevel)
 		for i := 0; i < len(applicants); i++ {
 			applicant := &applicants[i]
 			if len(applicant.Preferences) > prefLevel {
@@ -80,23 +95,44 @@ func main() {
 			}
 		}
 	}
+	return deptAdmissions
+}
 
-	// Sort admitted applicants within each department
-	for _, dept := range departments {
-		sort.Slice(deptAdmissions[dept], func(i, j int) bool {
-			if deptAdmissions[dept][i].GPA == deptAdmissions[dept][j].GPA {
-				return deptAdmissions[dept][i].FullName < deptAdmissions[dept][j].FullName
+func sortApplicants(applicants *[]Applicant, prefLevel int) {
+	sort.SliceStable(*applicants, func(i, j int) bool {
+		deptI := (*applicants)[i].Preferences[prefLevel]
+		deptJ := (*applicants)[j].Preferences[prefLevel]
+		scoreI := (*applicants)[i].GetScore(deptI)
+		scoreJ := (*applicants)[j].GetScore(deptJ)
+		if scoreI == scoreJ {
+			return (*applicants)[i].FullName < (*applicants)[j].FullName
+		}
+		return scoreI > scoreJ
+	})
+}
+
+func sortAdmissions(deptAdmissions map[string][]Applicant) {
+	for dept, applicants := range deptAdmissions {
+		sort.SliceStable(applicants, func(i, j int) bool {
+			if applicants[i].GetScore(dept) == applicants[j].GetScore(dept) {
+				return applicants[i].FullName < applicants[j].FullName
 			}
-			return deptAdmissions[dept][i].GPA > deptAdmissions[dept][j].GPA
+			return applicants[i].GetScore(dept) > applicants[j].GetScore(dept)
 		})
 	}
+}
 
-	// Print the successful applicants
-	for _, dept := range departments {
+func printResults(deptAdmissions map[string][]Applicant) {
+	for _, dept := range []string{"Biotech", "Chemistry", "Engineering", "Mathematics", "Physics"} {
 		fmt.Println(dept)
 		for _, applicant := range deptAdmissions[dept] {
-			fmt.Printf("%s %.2f\n", applicant.FullName, applicant.GPA)
+			fmt.Printf("%s %.1f\n", applicant.FullName, applicant.GetScore(dept))
 		}
 		fmt.Println()
 	}
+}
+
+func parseScore(s string) float64 {
+	score, _ := strconv.ParseFloat(s, 64)
+	return score
 }
