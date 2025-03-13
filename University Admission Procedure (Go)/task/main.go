@@ -19,15 +19,20 @@ type Applicant struct {
 }
 
 func (a *Applicant) GetScore(dept string) float64 {
-	return a.Scores[departmentSubjects[dept]]
+	subjects := departmentSubjects[dept]
+	var total float64
+	for _, subject := range subjects {
+		total += a.Scores[subject]
+	}
+	return total / float64(len(subjects))
 }
 
-var departmentSubjects = map[string]string{
-	"Biotech":     "Chemistry",
-	"Chemistry":   "Chemistry",
-	"Engineering": "Computer Science",
-	"Mathematics": "Math",
-	"Physics":     "Physics",
+var departmentSubjects = map[string][]string{
+	"Biotech":     {"Chemistry", "Physics"},
+	"Chemistry":   {"Chemistry"},
+	"Engineering": {"Computer Science", "Math"},
+	"Mathematics": {"Math"},
+	"Physics":     {"Physics", "Math"},
 }
 
 func main() {
@@ -41,7 +46,7 @@ func main() {
 
 	deptAdmissions := processAdmissions(applicants, N)
 	sortAdmissions(deptAdmissions)
-	printResults(deptAdmissions)
+	writeResults(deptAdmissions)
 }
 
 func readApplicants(filename string) ([]Applicant, error) {
@@ -122,13 +127,20 @@ func sortAdmissions(deptAdmissions map[string][]Applicant) {
 	}
 }
 
-func printResults(deptAdmissions map[string][]Applicant) {
-	for _, dept := range []string{"Biotech", "Chemistry", "Engineering", "Mathematics", "Physics"} {
-		fmt.Println(dept)
-		for _, applicant := range deptAdmissions[dept] {
-			fmt.Printf("%s %.1f\n", applicant.FullName, applicant.GetScore(dept))
+func writeResults(deptAdmissions map[string][]Applicant) {
+	for dept, applicants := range deptAdmissions {
+		file, err := os.Create(strings.ToLower(dept) + ".txt")
+		if err != nil {
+			fmt.Println("Error creating file:", err)
+			continue
 		}
-		fmt.Println()
+		defer file.Close()
+
+		writer := bufio.NewWriter(file)
+		for _, applicant := range applicants {
+			fmt.Fprintf(writer, "%s %.1f\n", applicant.FullName, applicant.GetScore(dept))
+		}
+		writer.Flush()
 	}
 }
 
