@@ -16,6 +16,7 @@ type Applicant struct {
 	Scores      map[string]float64
 	Preferences []string
 	FullName    string
+	SpecialExam float64
 }
 
 func (a *Applicant) GetScore(dept string) float64 {
@@ -24,7 +25,11 @@ func (a *Applicant) GetScore(dept string) float64 {
 	for _, subject := range subjects {
 		total += a.Scores[subject]
 	}
-	return total / float64(len(subjects))
+	meanScore := total / float64(len(subjects))
+	if meanScore > a.SpecialExam {
+		return meanScore
+	}
+	return a.SpecialExam
 }
 
 var departmentSubjects = map[string][]string{
@@ -68,7 +73,8 @@ func readApplicants(filename string) ([]Applicant, error) {
 			"Math":             parseScore(fields[4]),
 			"Computer Science": parseScore(fields[5]),
 		}
-		preferences := fields[6:]
+		specialExam := parseScore(fields[6])
+		preferences := fields[7:]
 
 		// Store applicant details
 		applicants = append(applicants, Applicant{
@@ -77,6 +83,7 @@ func readApplicants(filename string) ([]Applicant, error) {
 			Scores:      scores,
 			Preferences: preferences,
 			FullName:    fields[0] + " " + fields[1],
+			SpecialExam: specialExam,
 		})
 	}
 
